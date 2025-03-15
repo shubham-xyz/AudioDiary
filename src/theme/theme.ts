@@ -1,29 +1,30 @@
 export const colors = {
-  background: '#09090b',
-  foreground: '#ffffff',
-  card: '#18181b',
+  background: '#ffffff',
+  foreground: '#000000',
+  card: '#ffffff',
+  text: '#000000',
   primary: {
-    DEFAULT: '#6366f1',
+    DEFAULT: '#000000',
     foreground: '#ffffff',
   },
   secondary: {
-    DEFAULT: '#27272a',
+    DEFAULT: '#000000',
     foreground: '#ffffff',
   },
   muted: {
-    DEFAULT: '#27272a',
-    foreground: '#a1a1aa',
+    DEFAULT: '#ffffff',
+    foreground: '#000000',
   },
   accent: {
-    DEFAULT: '#18181b',
-    foreground: '#ffffff',
+    DEFAULT: '#ffffff',
+    foreground: '#000000',
   },
   destructive: {
-    DEFAULT: '#ef4444',
+    DEFAULT: '#000000',
     foreground: '#ffffff',
   },
-  border: '#27272a',
-  input: '#27272a',
+  border: '#000000',
+  input: '#000000',
 };
 
 export const typography = {

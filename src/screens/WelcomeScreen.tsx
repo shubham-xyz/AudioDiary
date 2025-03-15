@@ -16,6 +16,7 @@ import { RootStackParamList } from '../types/navigation';
 import { WelcomingIllustration } from '../components/WelcomingIllustration';
 import { quotes } from '../data/quotes';
 import { useMotivation } from '../context/MotivationContext';
+import { useTheme } from '../context/ThemeContext';
 
 type WelcomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,6 +40,7 @@ export const WelcomeScreen = () => {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingMotivation, setSavingMotivation] = useState(false);
+  const { theme } = useTheme();
 
   const getRandomQuote = () => {
     setLoading(true);
@@ -71,9 +73,9 @@ export const WelcomeScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Audio Diary</Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.title, { color: theme.colors.foreground }]}>Audio Diary</Text>
         
         <View style={styles.illustrationContainer}>
           <WelcomingIllustration 
@@ -91,18 +93,18 @@ export const WelcomeScreen = () => {
             </View>
           ) : quote ? (
             <>
-              <Text style={styles.quoteText}>"{quote.content}"</Text>
-              <Text style={styles.authorText}>— {quote.author}</Text>
-              <TouchableOpacity style={styles.newQuoteButton} onPress={handleNewQuote}>
-                <Text style={styles.newQuoteButtonText}>New Quote</Text>
+              <Text style={[styles.quoteText, { color: theme.colors.foreground }]}>"{quote.content}"</Text>
+              <Text style={[styles.authorText, { color: theme.colors.primary.DEFAULT }]}>— {quote.author}</Text>
+              <TouchableOpacity style={[styles.newQuoteButton, { backgroundColor: theme.colors.muted.DEFAULT }]} onPress={handleNewQuote}>
+                <Text style={[styles.newQuoteButtonText, { color: theme.colors.foreground }]}>New Quote</Text>
               </TouchableOpacity>
             </>
           ) : null}
         </View>
 
         <View style={styles.motivationContainer}>
-          <View style={styles.motivationTitleContainer}>
-            <Text style={styles.motivationTitle}>How motivated are you now?</Text>
+          <View style={[styles.motivationTitleContainer, { borderColor: '#ffffff', backgroundColor: '#000000' }]}>
+            <Text style={[styles.motivationTitle, { color: '#ffffff', fontWeight: '700' }]}>How motivated are you now?</Text>
           </View>
           <View style={styles.emojiContainer}>
             {MOTIVATION_EMOJIS.map((item) => (
@@ -110,7 +112,8 @@ export const WelcomeScreen = () => {
                 key={item.value}
                 style={[
                   styles.emojiButton,
-                  savingMotivation && styles.emojiButtonDisabled
+                  savingMotivation && styles.emojiButtonDisabled,
+                  { backgroundColor: theme.colors.card }
                 ]}
                 onPress={() => handleMotivationSelect(item.value)}
                 disabled={savingMotivation}
@@ -119,8 +122,8 @@ export const WelcomeScreen = () => {
                   <ActivityIndicator size="small" color={theme.colors.primary.DEFAULT} />
                 ) : (
                   <>
-                    <Text style={styles.emojiText}>{item.emoji}</Text>
-                    <Text style={styles.emojiLabel}>{item.label}</Text>
+                    <Text style={[styles.emojiText, { color: theme.colors.foreground }]}>{item.emoji}</Text>
+                    <Text style={[styles.emojiLabel, { color: theme.colors.foreground }]}>{item.label}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -135,11 +138,9 @@ export const WelcomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
     paddingTop: Platform.OS === 'android' ? theme.spacing[6] : 0,
     padding: theme.spacing[4],
     justifyContent: 'space-between',
@@ -147,7 +148,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: theme.typography.fontSize['4xl'],
     fontWeight: '700',
-    color: theme.colors.foreground,
     textAlign: 'center',
     marginTop: theme.spacing[8],
   },
@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
   },
   quoteText: {
     fontSize: theme.typography.fontSize.xl,
-    color: theme.colors.foreground,
     textAlign: 'center',
     lineHeight: 32,
     marginBottom: theme.spacing[4],
@@ -171,7 +170,6 @@ const styles = StyleSheet.create({
   },
   authorText: {
     fontSize: theme.typography.fontSize.base,
-    color: theme.colors.primary.DEFAULT,
     textAlign: 'center',
     fontWeight: '500',
   },
@@ -180,7 +178,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: theme.typography.fontSize.base,
-    color: theme.colors.destructive.DEFAULT,
     textAlign: 'center',
     marginBottom: theme.spacing[4],
   },
@@ -225,19 +222,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing[4],
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: theme.colors.foreground,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    borderColor: '#ffffff',
   },
   motivationTitle: {
     fontSize: theme.typography.fontSize.xl,
-    color: theme.colors.foreground,
     textAlign: 'center',
     fontWeight: '600',
   },
@@ -253,12 +241,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: theme.colors.card,
     minWidth: 70,
   },
   selectedEmojiButton: {
     borderColor: theme.colors.primary.DEFAULT,
-    backgroundColor: theme.colors.primary.DEFAULT + '20',
+    backgroundColor: theme.colors.primary.DEFAULT,
   },
   emojiText: {
     fontSize: 28,
@@ -266,7 +253,6 @@ const styles = StyleSheet.create({
   },
   emojiLabel: {
     fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.foreground,
     textAlign: 'center',
   },
   motivationError: {

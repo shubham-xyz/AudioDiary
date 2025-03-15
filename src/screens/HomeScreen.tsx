@@ -6,28 +6,28 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
-  Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { Plus, Star } from 'lucide-react-native';
-import { theme } from '../theme/theme';
-import { getDiaryEntries, DiaryEntry, saveDiaryEntry } from '../utils/storage';
 import { Calendar } from 'react-native-calendars';
+import { getDiaryEntries, DiaryEntry, saveDiaryEntry } from '../utils/storage';
 import { RootStackParamList, TabParamList } from '../types/navigation';
+import { Header } from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList & TabParamList>;
 
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
+  const { theme } = useTheme();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
-  const [favoriteEntries, setFavoriteEntries] = useState<DiaryEntry[]>([]);
   const [recentEntries, setRecentEntries] = useState<DiaryEntry[]>([]);
   const [importantEntries, setImportantEntries] = useState<DiaryEntry[]>([]);
-  const [markedDates, setMarkedDates] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [markedDates, setMarkedDates] = useState({});
 
   const loadEntries = useCallback(async () => {
     try {
@@ -56,6 +56,7 @@ export const HomeScreen = () => {
 
       // Set up marked dates for calendar
       const markedDatesData = {};
+      const today = new Date().toISOString().split('T')[0];
       
       diaryEntries.forEach((entry: DiaryEntry) => {
         markedDatesData[entry.date] = {
@@ -70,17 +71,24 @@ export const HomeScreen = () => {
             } : null,
             entry.isImportant ? {
               key: 'important',
-              color: '#f59e0b',
+              color: theme.colors.muted.foreground,
             } : null,
           ].filter(Boolean),
         };
       });
 
+      // Mark today's date
+      markedDatesData[today] = {
+        ...(markedDatesData[today] || {}),
+        selected: true,
+        selectedColor: theme.colors.primary.DEFAULT,
+      };
+
       setMarkedDates(markedDatesData);
     } catch (error) {
       console.error('Error loading entries:', error);
     }
-  }, []);
+  }, [theme.colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -88,14 +96,14 @@ export const HomeScreen = () => {
     }, [loadEntries])
   );
 
-  const navigateToNewEntry = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    navigation.navigate('DiaryEntry', { date: today });
-  };
-
   const handleDayPress = (day: any) => {
     setSelectedDate(day.dateString);
     navigation.navigate('DiaryEntry', { date: day.dateString });
+  };
+
+  const navigateToNewEntry = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    navigation.navigate('DiaryEntry', { date: today });
   };
 
   const navigateToEntry = (date: string) => {
@@ -130,12 +138,20 @@ export const HomeScreen = () => {
 
     return (
       <TouchableOpacity
-        style={styles.entryCard}
+        style={[
+          styles.entryCard,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
+          }
+        ]}
         onPress={() => navigateToEntry(item.date)}
       >
         <View style={styles.entryHeader}>
           <View style={styles.titleContainer}>
-            <Text style={styles.entryTitle}>{item.title || `Entry ${dateLabel}`}</Text>
+            <Text style={[styles.entryTitle, { color: theme.colors.foreground }]}>
+              {item.title || `Entry ${dateLabel}`}
+            </Text>
             <TouchableOpacity 
               onPress={() => toggleImportant(item)}
               style={[
@@ -145,47 +161,55 @@ export const HomeScreen = () => {
             >
               <Star 
                 size={18} 
-                color={item.isImportant ? '#f59e0b' : theme.colors.muted.foreground}
-                fill={item.isImportant ? '#f59e0b' : 'none'}
+                color={item.isImportant ? theme.colors.primary.DEFAULT : theme.colors.muted.foreground}
+                fill={item.isImportant ? theme.colors.primary.DEFAULT : 'none'}
                 strokeWidth={item.isImportant ? 2.5 : 2}
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.entryDate}>{dateLabel}</Text>
+          <Text style={[styles.entryDate, { color: theme.colors.muted.foreground }]}>
+            {dateLabel}
+          </Text>
         </View>
         {item.text && (
-          <Text style={styles.entryPreview} numberOfLines={2}>
+          <Text style={[styles.entryPreview, { color: theme.colors.foreground }]} numberOfLines={2}>
             {item.text}
           </Text>
         )}
       </TouchableOpacity>
     );
-  }, [navigateToEntry]);
+  }, [theme.colors, navigateToEntry, toggleImportant]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Audio Diary</Text>
-        </View>
-
+    <SafeAreaView 
+      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+      edges={['bottom']}
+    >
+      <View style={[
+        styles.container,
+        { backgroundColor: theme.colors.background }
+      ]}>
+        <Header title="VoiceVault" largeTitleMode />
         <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
+          style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
+          contentContainerStyle={[
+            styles.scrollViewContent,
+            { paddingTop: 8 }
+          ]}
         >
           <View style={styles.calendarContainer}>
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.dot, { backgroundColor: theme.colors.primary.DEFAULT }]} />
-                <Text style={styles.legendText}>Text</Text>
+                <Text style={[styles.legendText, { color: theme.colors.foreground }]}>Text</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.dot, { backgroundColor: theme.colors.secondary.DEFAULT }]} />
-                <Text style={styles.legendText}>Audio</Text>
+                <Text style={[styles.legendText, { color: theme.colors.foreground }]}>Audio</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.dot, { backgroundColor: '#f59e0b' }]} />
-                <Text style={styles.legendText}>Important</Text>
+                <View style={[styles.dot, { backgroundColor: theme.colors.muted.foreground }]} />
+                <Text style={[styles.legendText, { color: theme.colors.foreground }]}>Important</Text>
               </View>
             </View>
 
@@ -199,7 +223,7 @@ export const HomeScreen = () => {
                 },
               }}
               markingType="multi-dot"
-              style={styles.calendar}
+              style={[styles.calendar, { borderColor: theme.colors.border }]}
               current={selectedDate}
               enableSwipeMonths={true}
               theme={{
@@ -215,6 +239,8 @@ export const HomeScreen = () => {
                 textMonthFontWeight: 'bold',
                 textDayFontSize: 16,
                 textMonthFontSize: 18,
+                dotColor: theme.colors.primary.DEFAULT,
+                selectedDotColor: theme.colors.primary.foreground,
               }}
             />
           </View>
@@ -222,9 +248,9 @@ export const HomeScreen = () => {
           {importantEntries.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Important Entries</Text>
+                <Text style={[styles.sectionTitle, { color: theme.colors.foreground }]}>Important Entries</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Entries')}>
-                  <Text style={styles.seeAllText}>See all</Text>
+                  <Text style={[styles.seeAllText, { color: theme.colors.primary.DEFAULT }]}>See all</Text>
                 </TouchableOpacity>
               </View>
               <FlatList
@@ -240,9 +266,9 @@ export const HomeScreen = () => {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Entries</Text>
+              <Text style={[styles.sectionTitle, { color: theme.colors.foreground }]}>Recent Entries</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Entries')}>
-                <Text style={styles.seeAllText}>See all</Text>
+                <Text style={[styles.seeAllText, { color: theme.colors.primary.DEFAULT }]}>See all</Text>
               </TouchableOpacity>
             </View>
             {recentEntries.length > 0 ? (
@@ -255,9 +281,9 @@ export const HomeScreen = () => {
                 contentContainerStyle={styles.entriesListContent}
               />
             ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No recent entries</Text>
-                <Text style={styles.emptyStateSubText}>
+              <View style={[styles.emptyState, { backgroundColor: theme.colors.muted.DEFAULT }]}>
+                <Text style={[styles.emptyStateText, { color: theme.colors.foreground }]}>No recent entries</Text>
+                <Text style={[styles.emptyStateSubText, { color: theme.colors.muted.foreground }]}>
                   Start by creating your first diary entry
                 </Text>
               </View>
@@ -266,11 +292,11 @@ export const HomeScreen = () => {
         </ScrollView>
         
         <TouchableOpacity
-          style={styles.newEntryButton}
+          style={[styles.newEntryButton, { backgroundColor: theme.colors.primary.DEFAULT }]}
           onPress={navigateToNewEntry}
         >
           <Plus size={24} color={theme.colors.primary.foreground} />
-          <Text style={styles.newEntryButtonText}>New Entry</Text>
+          <Text style={[styles.newEntryButtonText, { color: theme.colors.primary.foreground }]}>New Entry</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -280,128 +306,100 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingTop: Platform.OS === 'android' ? theme.spacing[6] : 0,
-  },
-  header: {
-    padding: theme.spacing[4],
-    paddingTop: theme.spacing[6],
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  title: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: '700',
-    color: theme.colors.foreground,
-    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 100,
+    paddingBottom: 150,
   },
   section: {
-    marginBottom: theme.spacing[6],
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing[4],
-    marginBottom: theme.spacing[3],
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: 18,
     fontWeight: '600',
-    color: theme.colors.foreground,
   },
   seeAllText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.primary.DEFAULT,
+    fontSize: 14,
     fontWeight: '500',
   },
   entriesListContent: {
-    paddingHorizontal: theme.spacing[4],
-    gap: theme.spacing[3],
+    paddingHorizontal: 16,
+    gap: 12,
   },
   entryCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing[4],
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     width: 250,
-    marginRight: theme.spacing[3],
+    marginRight: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 12,
   },
   entryHeader: {
-    marginBottom: theme.spacing[2],
+    marginBottom: 8,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing[1],
+    marginBottom: 4,
     justifyContent: 'space-between',
   },
   entryTitle: {
-    fontSize: theme.typography.fontSize.base,
+    fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.foreground,
     flex: 1,
   },
   iconButton: {
-    padding: theme.spacing[1],
-    borderRadius: theme.borderRadius.full,
+    padding: 4,
+    borderRadius: 9999,
     backgroundColor: 'transparent',
-    marginLeft: theme.spacing[2],
+    marginLeft: 8,
   },
   importantButton: {
-    backgroundColor: 'rgba(254, 243, 199, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   entryDate: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.muted.foreground,
+    fontSize: 14,
   },
   entryPreview: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.foreground,
+    fontSize: 14,
     lineHeight: 20,
   },
   emptyState: {
-    padding: theme.spacing[4],
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.muted.DEFAULT,
-    borderRadius: theme.borderRadius.lg,
-    marginHorizontal: theme.spacing[4],
+    borderRadius: 12,
+    marginHorizontal: 16,
   },
   emptyStateText: {
-    fontSize: theme.typography.fontSize.base,
+    fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.foreground,
-    marginBottom: theme.spacing[2],
+    marginBottom: 8,
   },
   emptyStateSubText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.muted.foreground,
+    fontSize: 14,
     textAlign: 'center',
   },
   newEntryButton: {
-    backgroundColor: theme.colors.primary.DEFAULT,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing[4],
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    margin: theme.spacing[4],
-    marginBottom: theme.spacing[6],
+    margin: 16,
+    marginBottom: 24,
     flexDirection: 'row',
-    gap: theme.spacing[2],
+    gap: 8,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -413,28 +411,26 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   newEntryButtonText: {
-    color: theme.colors.primary.foreground,
-    fontSize: theme.typography.fontSize.base,
+    fontSize: 16,
     fontWeight: '600',
   },
   calendarContainer: {
-    marginBottom: theme.spacing[6],
-    padding: theme.spacing[4],
+    marginBottom: 24,
+    padding: 16,
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing[3],
+    marginBottom: 12,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   legendText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.foreground,
-    marginLeft: theme.spacing[2],
+    fontSize: 14,
+    marginLeft: 8,
   },
   dot: {
     width: 8,
@@ -442,8 +438,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   calendar: {
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
   },
 }); 

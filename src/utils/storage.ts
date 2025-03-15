@@ -1,15 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export interface DiaryEntry {
+export type DiaryEntry = {
   id: string;
   date: string;
-  text: string;
-  audioPath: string;
-  createdAt: string;
-  title: string;
+  title?: string;
+  text?: string;
+  audioPath?: string;
   isImportant: boolean;
-  uniqueKey?: string;
-}
+  createdAt: string;
+  mood?: 'happy' | 'neutral' | 'sad';
+  tags?: string[];
+  location?: {
+    latitude: number;
+    longitude: number;
+    name: string;
+  };
+  weather?: {
+    temperature: number;
+    condition: string;
+    icon: string;
+  };
+};
 
 const DIARY_ENTRIES_KEY = 'diary_entries';
 

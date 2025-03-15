@@ -8,20 +8,38 @@ import {
   Alert,
   Platform,
   SafeAreaView,
+  GestureResponderEvent,
+  PanResponder,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { theme } from '../theme/theme';
 import { getDiaryEntries, deleteDiaryEntry, DiaryEntry, saveDiaryEntry } from '../utils/storage';
 import { Trash2, Star, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { RootStackParamList, TabParamList } from '../types/navigation';
+import { Header } from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
 
 type EntriesScreenNavigationProp = NativeStackNavigationProp<RootStackParamList & TabParamList>;
 
+interface DotMarking {
+  key: string;
+  color: string;
+}
+
+interface MarkedDate {
+  dots?: DotMarking[];
+  marked?: boolean;
+  selected?: boolean;
+  selectedColor?: string;
+}
+
 export const EntriesScreen = () => {
+  const { theme } = useTheme();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
+  const [touchStartX, setTouchStartX] = useState(0);
   const navigation = useNavigation<EntriesScreenNavigationProp>();
 
   const loadEntries = useCallback(async () => {
@@ -39,10 +57,55 @@ export const EntriesScreen = () => {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       setEntries(monthEntries);
+
+      // Set up marked dates for calendar
+      const markedDatesData: MarkedDates = {};
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      diaryEntries.forEach((entry: DiaryEntry) => {
+        const dots: DotMarking[] = [];
+        
+        if (entry.text) {
+          dots.push({
+            key: 'text',
+            color: theme.colors.primary.DEFAULT,
+          });
+        }
+        
+        if (entry.audioPath) {
+          dots.push({
+            key: 'audio',
+            color: theme.colors.secondary.DEFAULT,
+          });
+        }
+        
+        if (entry.isImportant) {
+          dots.push({
+            key: 'important',
+            color: theme.colors.primary.DEFAULT,
+          });
+        }
+
+        if (dots.length > 0) {
+          markedDatesData[entry.date] = {
+            dots,
+            marked: true,
+          };
+        }
+      });
+
+      // Add today's date marking
+      markedDatesData[today] = {
+        ...markedDatesData[today],
+        selected: true,
+        selectedColor: theme.colors.primary.DEFAULT,
+      };
+
+      setMarkedDates(markedDatesData);
     } catch (error) {
       console.error('Error loading entries:', error);
     }
-  }, [currentMonth]);
+  }, [currentMonth, theme.colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -88,6 +151,26 @@ export const EntriesScreen = () => {
     }
   };
 
+  const handleTouchStart = (event: GestureResponderEvent) => {
+    setTouchStartX(event.nativeEvent.pageX);
+  };
+
+  const handleTouchEnd = (event: GestureResponderEvent) => {
+    const touchEndX = event.nativeEvent.pageX;
+    const swipeDistance = touchEndX - touchStartX;
+    
+    // Minimum distance to trigger swipe
+    if (Math.abs(swipeDistance) > 50) {
+      if (swipeDistance > 0) {
+        // Swipe right - go to previous month
+        navigateMonth('prev');
+      } else {
+        // Swipe left - go to next month
+        navigateMonth('next');
+      }
+    }
+  };
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prevMonth => {
       const newMonth = new Date(prevMonth);
@@ -98,6 +181,14 @@ export const EntriesScreen = () => {
       }
       return newMonth;
     });
+  };
+
+  const handleMonthChange = (date: DateData) => {
+    setCurrentMonth(new Date(date.timestamp));
+  };
+
+  const handleNavigate = (screen: string) => {
+    navigation.navigate(screen as never);
   };
 
   const renderEntryItem = useCallback(({ item }: { item: DiaryEntry }) => {
@@ -114,24 +205,32 @@ export const EntriesScreen = () => {
 
     return (
       <TouchableOpacity
-        style={styles.entryCard}
+        style={[
+          styles.entryCard,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
+          }
+        ]}
         onPress={() => navigation.navigate('DiaryEntry', { date: item.date })}
       >
         <View style={styles.entryHeader}>
           <View style={styles.titleContainer}>
-            <Text style={styles.entryTitle}>{item.title || `Entry ${dateLabel}`}</Text>
+            <Text style={[styles.entryTitle, { color: theme.colors.foreground }]}>
+              {item.title || `Entry ${dateLabel}`}
+            </Text>
             <View style={styles.actionButtons}>
               <TouchableOpacity 
                 onPress={() => toggleImportant(item)}
                 style={[
                   styles.iconButton,
-                  item.isImportant && styles.importantButton
+                  item.isImportant && [styles.importantButton, { backgroundColor: `${theme.colors.muted.DEFAULT}20` }]
                 ]}
               >
                 <Star 
                   size={18} 
-                  color={item.isImportant ? '#f59e0b' : theme.colors.muted.foreground}
-                  fill={item.isImportant ? '#f59e0b' : 'none'}
+                  color={item.isImportant ? theme.colors.primary.DEFAULT : theme.colors.muted.foreground}
+                  fill={item.isImportant ? theme.colors.primary.DEFAULT : 'none'}
                   strokeWidth={item.isImportant ? 2.5 : 2}
                 />
               </TouchableOpacity>
@@ -143,58 +242,72 @@ export const EntriesScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={styles.entryDate}>{dateLabel}</Text>
+          <Text style={[styles.entryDate, { color: theme.colors.muted.foreground }]}>
+            {dateLabel}
+          </Text>
         </View>
         {item.text && (
-          <Text style={styles.entryPreview} numberOfLines={2}>
+          <Text 
+            style={[styles.entryPreview, { color: theme.colors.muted.foreground }]} 
+            numberOfLines={2}
+          >
             {item.text}
           </Text>
         )}
       </TouchableOpacity>
     );
-  }, [navigation]);
+  }, [navigation, theme.colors, toggleImportant]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Your Entries</Text>
-        </View>
-
-        <View style={styles.monthSelector}>
-          <TouchableOpacity 
-            onPress={() => navigateMonth('prev')}
-            style={styles.monthButton}
-          >
-            <ChevronLeft size={24} color={theme.colors.foreground} />
-          </TouchableOpacity>
-          <Text style={styles.monthText}>
-            {format(currentMonth, 'MMMM yyyy')}
-          </Text>
-          <TouchableOpacity 
-            onPress={() => navigateMonth('next')}
-            style={styles.monthButton}
-          >
-            <ChevronRight size={24} color={theme.colors.foreground} />
-          </TouchableOpacity>
-        </View>
-        
-        {entries.length > 0 ? (
-          <FlatList
-            data={entries}
-            renderItem={renderEntryItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.entriesList}
-            showsVerticalScrollIndicator={false}
-          />
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No entries this month</Text>
-            <Text style={styles.emptyStateSubText}>
-              Create a new entry or swipe to view another month
-            </Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Header title="Your Entries" />
+        <View style={styles.content}>
+          <View style={[styles.monthSelector, { 
+            backgroundColor: theme.colors.card,
+            borderBottomColor: theme.colors.border,
+          }]}>
+            <TouchableOpacity 
+              onPress={() => navigateMonth('prev')}
+              style={[styles.monthButton, { backgroundColor: `${theme.colors.muted.DEFAULT}20` }]}
+            >
+              <ChevronLeft size={24} color={theme.colors.foreground} />
+            </TouchableOpacity>
+            <View style={styles.monthInfo}>
+              <Text style={[styles.monthText, { color: theme.colors.foreground }]}>
+                {format(currentMonth, 'MMMM yyyy')}
+              </Text>
+              <Text style={[styles.entriesCount, { color: theme.colors.muted.foreground }]}>
+                {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => navigateMonth('next')}
+              style={[styles.monthButton, { backgroundColor: `${theme.colors.muted.DEFAULT}20` }]}
+            >
+              <ChevronRight size={24} color={theme.colors.foreground} />
+            </TouchableOpacity>
           </View>
-        )}
+          
+          {entries.length > 0 ? (
+            <FlatList
+              data={entries}
+              renderItem={renderEntryItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.entriesList}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyStateText, { color: theme.colors.foreground }]}>
+                No entries this month
+              </Text>
+              <Text style={[styles.emptyStateSubText, { color: theme.colors.muted.foreground }]}>
+                Create a new entry or navigate to another month
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -203,107 +316,93 @@ export const EntriesScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingTop: Platform.OS === 'android' ? theme.spacing[6] : 0,
   },
-  header: {
-    padding: theme.spacing[4],
-    paddingTop: theme.spacing[6],
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  title: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: '700',
-    color: theme.colors.foreground,
-    textAlign: 'center',
+  content: {
+    flex: 1,
   },
   entriesList: {
-    padding: theme.spacing[4],
+    padding: 16,
+    paddingBottom: 150,
   },
   entryCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing[4],
-    marginBottom: theme.spacing[3],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   entryHeader: {
-    marginBottom: theme.spacing[2],
+    marginBottom: 8,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing[1],
+    marginBottom: 4,
   },
   entryTitle: {
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: 18,
     fontWeight: '600',
-    color: theme.colors.foreground,
     flex: 1,
   },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing[2],
+    gap: 8,
   },
   iconButton: {
-    padding: theme.spacing[2],
-    borderRadius: theme.borderRadius.md,
+    padding: 8,
+    borderRadius: 8,
   },
   importantButton: {
-    backgroundColor: theme.colors.muted.DEFAULT + '20',
+    borderRadius: 8,
   },
   entryDate: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.muted.foreground,
+    fontSize: 14,
   },
   entryPreview: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.muted.foreground,
-    marginTop: theme.spacing[2],
+    fontSize: 16,
+    marginTop: 8,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing[4],
+    padding: 16,
   },
   emptyStateText: {
-    fontSize: theme.typography.fontSize.xl,
+    fontSize: 24,
     fontWeight: '600',
-    color: theme.colors.foreground,
-    marginBottom: theme.spacing[2],
+    marginBottom: 8,
   },
   emptyStateSubText: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.muted.foreground,
+    fontSize: 16,
     textAlign: 'center',
   },
   monthSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[2],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    marginBottom: 12,
   },
   monthButton: {
-    padding: theme.spacing[2],
-    borderRadius: theme.borderRadius.full,
+    padding: 8,
+    borderRadius: 20,
+  },
+  monthInfo: {
+    alignItems: 'center',
   },
   monthText: {
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: 24,
     fontWeight: '600',
-    color: theme.colors.foreground,
+    marginBottom: 4,
+  },
+  entriesCount: {
+    fontSize: 14,
   },
 }); 
